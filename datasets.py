@@ -7,13 +7,14 @@ import sys
 from PIL import Image
 import numpy as np
 from tqdm import tqdm, trange
-
+import glob
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from torchvision.datasets.utils import download_url, check_integrity
 import torch.utils.data as data
 from torch.utils.data import DataLoader
-         
+from torch.utils.data import Dataset
+
 IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm']
 
 
@@ -360,3 +361,38 @@ class CIFAR100(CIFAR10):
     test_list = [
         ['test', 'f0ef6b0ae62326f3e7ffdfab6717acfc'],
     ]
+
+
+
+class MVTecDataset(Dataset):
+    def __init__(self, root, category='screw', transform=None, target_transform=None, train=True, normal=True):
+        self.transform = transform
+        if train:
+            self.image_files = glob(
+                os.path.join(root, category, "train", "good", "*.png")
+            )
+        else:
+          image_files = glob(os.path.join(root, category, "test", "*", "*.png"))
+          normal_image_files = glob(os.path.join(root, category, "test", "good", "*.png"))
+          anomaly_image_files = list(set(image_files) - set(normal_image_files))
+          self.image_files = image_files
+
+        self.image_files.sort(key=lambda y: y.lower())
+        self.train = train
+
+    def __getitem__(self, index):
+        image_file = self.image_files[index]
+        image = Image.open(image_file)
+        image = image.convert('RGB')
+        if self.transform is not None:
+            image = self.transform(image)
+
+        if os.path.dirname(image_file).endswith("good"):
+            target = 0
+        else:
+            target = 1
+
+        return image, target
+
+    def __len__(self):
+        return len(self.image_files)
